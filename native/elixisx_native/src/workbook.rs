@@ -104,18 +104,35 @@ pub fn decode_hash_map<'a, K: Eq + Hash + Decoder<'a>, V: Decoder<'a>>(
         .collect()
 }
 
-enum CellValue {
+pub fn decode_keyword_list<'a>(list: ListIterator<'a>) -> NifResult<HashMap<String, Term<'a>>> {
+    list.map(|x| {
+        let x = ::rustler::types::tuple::get_tuple(x)?;
+        if x.len() == 2 {
+            Ok((x[0].decode::<String>()?, x[1]))
+        } else {
+            Err(Error::BadArg)
+        }
+    }).collect()
+}
+
+pub enum CellValue {
     ExcelTS(String),
     Formula(String, HashMap<String, String>),
     String(String),
     Number(String),
+    Date(::chrono::NaiveDateTime),
+    Empty,
     None,
 }
 
-impl<'a> Decoder<'a> for CellValue {
-    fn decode(term: Term<'a>) -> NifResult<Self> {
-        Ok(match get_type(term) {
-            TermType::Tuple => {
+impl<'a> CellValue {
+    pub fn new(term: Term<'a>, is_date: bool) -> NifResult<Self> {
+        Ok(match (get_type(term), is_date) {
+            (TermType::Tuple, true) => {
+                let ((y, m, d), (h, mm, s)) = term.decode::<((i32, u32, u32), (u32, u32, u32))>()?;
+                CellValue::Date(::chrono::NaiveDate::from_ymd(y, m, d).and_hms(h, mm, s))
+            }
+            (TermType::Tuple, false) => {
                 let li = ::rustler::types::tuple::get_tuple(term)?;
                 if li.len() >= 2 && li.len() <= 3 {
                     let t: &str = li[0].decode()?;
@@ -129,14 +146,22 @@ impl<'a> Decoder<'a> for CellValue {
                             }
                             CellValue::Formula(formula, opts)
                         }
+                        _ => CellValue::None,
                     }
                 } else {
                     CellValue::None
                 }
             }
-            TermType::Number => CellValue::Number(term.decode::<String>()?),
-            TermType::Binary => CellValue::String(term.decode::<String>()?),
-            //nil or :empty or others
+            (TermType::Number, _) => CellValue::Number(term.decode::<String>()?),
+            (TermType::Binary, _) => CellValue::String(term.decode::<String>()?),
+            (TermType::Atom, _) => {
+                if term.decode::<String>()? == "empty" {
+                    CellValue::Empty
+                } else {
+                    CellValue::None
+                }
+            }
+            //nil or others
             _ => CellValue::None,
         })
     }

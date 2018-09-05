@@ -1,13 +1,16 @@
+use error::ExcelResult;
 use rustler::dynamic::get_type;
 use rustler::types::{Binary, ListIterator, MapIterator, OwnedBinary};
-use rustler::{Decoder, Env, Term, TermType};
+use rustler::{Decoder, Env, Error, NifResult, Term, TermType};
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
 use workbook::{Sheet, Workbook};
-use error::{ExcelResult};
 
-pub fn make_workbook_comp_info<'a>(env: Env<'a>, args: &[Term<'a>]) -> ExcelResult<(Workbook<'a>, WorkbookCompInfo)> {
+pub fn make_workbook_comp_info<'a>(
+    env: Env<'a>,
+    args: &[Term<'a>],
+) -> ExcelResult<(Workbook<'a>, WorkbookCompInfo)> {
     let workbook: Workbook = args[0].decode()?;
 
     let (sci, next_rid) = make_sheet_info(&workbook.sheets, 2);
@@ -96,17 +99,38 @@ impl WorkbookCompInfo {
 #[derive(Default)]
 pub struct DB<T: Eq + Hash> {
     pub data: HashMap<T, i32>,
-    pub count: i32,
 }
 
-#[derive(Default, Eq, PartialEq, Hash)]
+impl<T: Eq + Hash + Clone> DB<T> {
+    pub fn get_id(&mut self, key: &T) -> i32 {
+        match self.data.get(key) {
+            Some(&id) => id,
+            _ => {
+                let id = self.data.len() as i32 + 1;
+                self.data.insert(key.clone(), id);
+                id
+            }
+        }
+    }
+}
+
+#[derive(Default, Eq, PartialEq, Hash, Clone)]
 pub struct Border {
     pub type_: String,
     pub style: String,
-    pub coloe: String,
+    pub color: String,
+}
+impl<'a> Border {
+    fn new(map: &HashMap<String, Term<'a>>, type_: String) -> NifResult<Self> {
+        Ok(Border {
+            type_: type_,
+            style: get_keyword_value(map, "style", Default::default())?,
+            color: get_keyword_value(map, "color", Default::default())?,
+        })
+    }
 }
 
-#[derive(Default, Eq, PartialEq, Hash)]
+#[derive(Default, Eq, PartialEq, Hash, Clone)]
 pub struct BorderStyle {
     pub left: Border,
     pub right: Border,
@@ -116,8 +140,27 @@ pub struct BorderStyle {
     pub diagonal_up: bool,
     pub diagonal_down: bool,
 }
+impl<'a> BorderStyle {
+    fn new(map: &HashMap<String, Term<'a>>) -> NifResult<Self> {
+        fn get_border<'a>(map: &HashMap<String, Term<'a>>, name: &str) -> NifResult<Border> {
+            let li: ListIterator = map.get(name).ok_or_else(|| Error::BadArg)?.decode()?;
+            let map = ::workbook::decode_keyword_list(li)?;
+            Border::new(&map, name.to_string())
+        }
 
-#[derive(Default, Eq, PartialEq, Hash)]
+        Ok(BorderStyle {
+            left: get_border(map, "left")?,
+            right: get_border(map, "right")?,
+            top: get_border(map, "top")?,
+            bottom: get_border(map, "bottom")?,
+            diagonal: get_border(map, "diagonal")?,
+            diagonal_down: get_bool(map, "diagonal_down"),
+            diagonal_up: get_bool(map, "diagonal_up"),
+        })
+    }
+}
+
+#[derive(Default, Eq, PartialEq, Hash, Clone)]
 pub struct Font {
     pub bold: bool,
     pub italic: bool,
@@ -130,7 +173,25 @@ pub struct Font {
     pub align_vertical: String,
     pub font: String,
 }
-#[derive(Default, Eq, PartialEq, Hash)]
+
+impl<'a> Font {
+    fn new(map: &HashMap<String, Term<'a>>) -> NifResult<Self> {
+        Ok(Font {
+            bold: get_bool(map, "bold"),
+            italic: get_bool(map, "italic"),
+            underline: get_bool(map, "underline"),
+            strike: get_bool(map, "strike"),
+            size: map.get("size").map_or(Err(Error::BadArg), |x| x.decode())?,
+            color: get_keyword_value(map, "color", Default::default())?,
+            wrap_text: get_bool(map, "wrap_text"),
+            align_horizontal: get_keyword_value(map, "align_horizontal", Default::default())?,
+            align_vertical: get_keyword_value(map, "align_vertical", Default::default())?,
+            font: get_keyword_value(map, "font", Default::default())?,
+        })
+    }
+}
+
+#[derive(Default, Eq, PartialEq, Hash, Clone)]
 pub struct CellStyle {
     pub font: Font,
     pub fill: String,
@@ -138,6 +199,42 @@ pub struct CellStyle {
     pub border: BorderStyle,
 }
 
+impl<'a> CellStyle {
+    pub fn new(list: ListIterator<'a>) -> NifResult<Self> {
+        let map = ::workbook::decode_keyword_list(list)?;
+        Ok(CellStyle {
+            font: Font::new(&map)?,
+            fill: get_keyword_value(&map, "bg_color", Default::default())?,
+            numfmt: get_numfmt(&map)?,
+            border: BorderStyle::new(&map)?,
+        })
+    }
+    pub fn is_date(&self) -> bool {
+        self.numfmt.contains("yy")
+    }
+}
 
+fn get_numfmt<'a>(map: &HashMap<String, Term<'a>>) -> NifResult<String> {
+    Ok(if map.contains_key("yyyymmdd") {
+        "yyyy-mm-dd".to_string()
+    } else if map.contains_key("datetime") {
+        "yyyy-mm-dd h:mm:ss".to_string()
+    } else if let Some(num_format) = map.get("num_format") {
+        num_format.decode()?
+    } else {
+        "".to_string()
+    })
+}
 
+fn get_keyword_value<'a, T: Default + Decoder<'a>>(
+    map: &HashMap<String, Term<'a>>,
+    key: &str,
+    default: T,
+) -> NifResult<T> {
+    map.get(key).map_or(Ok(default), |term| term.decode())
+}
 
+fn get_bool<'a>(map: &HashMap<String, Term<'a>>, key: &str) -> bool {
+    map.get(key)
+        .map_or(false, |x| x.decode::<bool>().unwrap_or(false))
+}

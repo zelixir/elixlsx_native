@@ -25,6 +25,7 @@ impl From<::zip::result::ZipError> for ExcelError {
     }
 }
 
+
 impl From<ExcelError> for ::rustler::Error {
     fn from(err: ExcelError) -> Self {
         match err {

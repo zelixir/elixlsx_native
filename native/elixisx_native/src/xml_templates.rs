@@ -3,8 +3,9 @@ use rustler::dynamic::get_type;
 use rustler::types::{Binary, ListIterator, MapIterator, OwnedBinary};
 use rustler::{Decoder, Encoder, Env, Term, TermType};
 use std::collections::HashMap;
+use util::to_excel_coords;
 use wb_compiler::{CellStyle, Font, SheetCompInfo, WorkbookCompInfo};
-use workbook::Sheet;
+use workbook::{CellValue, Sheet};
 use xml_writer::XmlWriter;
 
 fn write_sheet_rows<T: XmlWriter>(
@@ -17,7 +18,7 @@ fn write_sheet_rows<T: XmlWriter>(
   let rows: ListIterator = sheet.rows.decode()?;
   for r in rows {
     writer.write_xml(&"row", get_row_attr(&i, &sheet.row_heights), |w| {
-      write_sheet_cols(w, &r, &i, wci)
+      write_sheet_cols(w, &r, i, wci)
     })?;
     i = i + 1;
   }
@@ -27,30 +28,73 @@ fn write_sheet_rows<T: XmlWriter>(
 fn write_sheet_cols<'a, T: XmlWriter>(
   writer: &mut T,
   row: &Term<'a>,
-  row_index: &i32,
+  row_index: i32,
   wci: &mut WorkbookCompInfo,
 ) -> ExcelResult<()> {
   let mut i = 1;
 
   let cols: ListIterator = row.decode()?;
   for cell in cols {
-    // writer.write_xml(&"row", get_row_attr(&i, &sheet.row_heights), |w| {
-    //   write_sheet_cols(writer, &r, &i, &mut wci)
-    // })?;
+    let (content, style_id, style) = split_into_content_style(cell, wci)?;
+    let r = to_excel_coords(row_index, i);
+    match content {
+      CellValue::String(string) => {
+        let id = wci.stringdb.get_id(&string);
+        writer.write_string(format!(
+          r##"<c r="{}" s="{}" t="s">
+              <v>{}</v>
+              </c>"##,
+          r, style_id, string
+        ))?;
+      }
+      CellValue::Empty => {
+        writer.write_string(format!(r##"<c r="{}" s="{}"></c>"##, r, style_id))?;
+      }
+      CellValue::ExcelTS(num) =>{
+        writer.write_string(format!(
+          r##"<c r="{}" s="{}" t="n">
+              <v>{}</v>
+              </c>"##,
+          r, style_id, num
+        ))?;
+      CellValue::Formula(formular, opts) =>{
+
+      }
+      CellValue::Number(num) =>{
+
+      }
+      CellValue::Date(num) =>{
+
+      }
+      _ => (),
+    }
     i = i + 1;
   }
   Ok(())
 }
 
-enum CellValue {
-  None,
-}
-
 fn split_into_content_style<'a>(
-  cell: &Term<'a>,
+  cell: Term<'a>,
   wci: &mut WorkbookCompInfo,
-) -> (CellValue, i32, CellStyle) {
-
+) -> ExcelResult<(CellValue, i32, Option<CellStyle>)> {
+  Ok(match get_type(cell) {
+    TermType::List => {
+      let mut li: ListIterator = cell.decode()?;
+      match li.next() {
+        Some(term) => {
+          let cell_style = CellStyle::new(li)?;
+          let cell_value = CellValue::new(term, cell_style.is_date())?;
+          (
+            cell_value,
+            wci.cellstyledb.get_id(&cell_style),
+            Some(cell_style),
+          )
+        }
+        _ => (CellValue::None, 0, None),
+      }
+    }
+    _ => (CellValue::new(cell, false)?, 0, None),
+  })
 }
 
 fn get_row_attr<'a>(
