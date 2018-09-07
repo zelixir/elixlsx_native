@@ -116,28 +116,34 @@ pub fn decode_keyword_list<'a>(list: ListIterator<'a>) -> NifResult<HashMap<Stri
 }
 
 pub enum CellValue {
-    ExcelTS(String),
     Formula(String, HashMap<String, String>),
     String(String),
     Number(String),
-    Date(::chrono::NaiveDateTime),
     Empty,
     None,
 }
 
 impl<'a> CellValue {
     pub fn new(term: Term<'a>, is_date: bool) -> NifResult<Self> {
+        lazy_static! {
+            static ref EXCEL_EPOCH: i64 = ::chrono::NaiveDate::from_ymd(1899, 12, 31)
+                .and_hms(0, 0, 0)
+                .timestamp();
+        }
         Ok(match (get_type(term), is_date) {
             (TermType::Tuple, true) => {
                 let ((y, m, d), (h, mm, s)) = term.decode::<((i32, u32, u32), (u32, u32, u32))>()?;
-                CellValue::Date(::chrono::NaiveDate::from_ymd(y, m, d).and_hms(h, mm, s))
+                let v = (::chrono::NaiveDate::from_ymd(y, m, d)
+                    .and_hms(h, mm, s)
+                    .timestamp() - *EXCEL_EPOCH) as f64 / 86400.0;
+                CellValue::Number(v.to_string())
             }
             (TermType::Tuple, false) => {
                 let li = ::rustler::types::tuple::get_tuple(term)?;
                 if li.len() >= 2 && li.len() <= 3 {
                     let t: &str = li[0].decode()?;
                     match t {
-                        "excelts" => CellValue::ExcelTS(li[1].decode()?),
+                        "excelts" => CellValue::Number(li[1].decode()?),
                         "formula" => {
                             let formula: String = li[1].decode()?;
                             let mut opts: HashMap<String, String> = HashMap::new();

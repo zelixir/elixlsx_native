@@ -30,8 +30,8 @@ impl From<ExcelError> for ::rustler::Error {
     fn from(err: ExcelError) -> Self {
         match err {
             ExcelError::NIFErr(err) => err,
-            ExcelError::IOErr(err) => ::rustler::Error::Atom("io_err"),
-            ExcelError::ZipErr(err) => ::rustler::Error::Atom("zip_err"),
+            ExcelError::IOErr(_) => ::rustler::Error::Atom("io_err"),
+            ExcelError::ZipErr(_) => ::rustler::Error::Atom("zip_err"),
         }
     }
 }

@@ -35,36 +35,42 @@ fn write_sheet_cols<'a, T: XmlWriter>(
 
   let cols: ListIterator = row.decode()?;
   for cell in cols {
-    let (content, style_id, style) = split_into_content_style(cell, wci)?;
+    let (content, style_id) = split_into_content_style(cell, wci)?;
     let r = to_excel_coords(row_index, i);
     match content {
       CellValue::String(string) => {
         let id = wci.stringdb.get_id(&string);
-        writer.write_string(format!(
+        writer.write_string(&format!(
           r##"<c r="{}" s="{}" t="s">
               <v>{}</v>
               </c>"##,
-          r, style_id, string
+          r, style_id, id
         ))?;
       }
       CellValue::Empty => {
-        writer.write_string(format!(r##"<c r="{}" s="{}"></c>"##, r, style_id))?;
+        writer.write_string(&format!(r##"<c r="{}" s="{}"></c>"##, r, style_id))?;
       }
-      CellValue::ExcelTS(num) =>{
-        writer.write_string(format!(
+      CellValue::Number(num) => {
+        writer.write_string(&format!(
           r##"<c r="{}" s="{}" t="n">
               <v>{}</v>
               </c>"##,
           r, style_id, num
         ))?;
-      CellValue::Formula(formular, opts) =>{
-
       }
-      CellValue::Number(num) =>{
-
-      }
-      CellValue::Date(num) =>{
-
+      CellValue::Formula(formular, opts) => {
+        let value = match opts.get("value") {
+          Some(value) => format!("<v>{}</v>", value),
+          _ => "".to_string(),
+        };
+        writer.write_string(&format!(
+          r##"<c r="{}"
+              s="{}">
+              <f>{}</f>
+              {}
+              </c>"##,
+          r, style_id, formular, value
+        ))?;
       }
       _ => (),
     }
@@ -76,7 +82,7 @@ fn write_sheet_cols<'a, T: XmlWriter>(
 fn split_into_content_style<'a>(
   cell: Term<'a>,
   wci: &mut WorkbookCompInfo,
-) -> ExcelResult<(CellValue, i32, Option<CellStyle>)> {
+) -> ExcelResult<(CellValue, i32)> {
   Ok(match get_type(cell) {
     TermType::List => {
       let mut li: ListIterator = cell.decode()?;
@@ -84,16 +90,12 @@ fn split_into_content_style<'a>(
         Some(term) => {
           let cell_style = CellStyle::new(li)?;
           let cell_value = CellValue::new(term, cell_style.is_date())?;
-          (
-            cell_value,
-            wci.cellstyledb.get_id(&cell_style),
-            Some(cell_style),
-          )
+          (cell_value, wci.cellstyledb.get_id(&cell_style))
         }
-        _ => (CellValue::None, 0, None),
+        _ => (CellValue::None, 0),
       }
     }
-    _ => (CellValue::new(cell, false)?, 0, None),
+    _ => (CellValue::new(cell, false)?, 0),
   })
 }
 
@@ -217,7 +219,7 @@ fn make_sheet_view(sheet: &Sheet) -> String {
   )
 }
 fn wrtie_col_widths<T: XmlWriter>(writer: &mut T, sheet: &Sheet) -> ExcelResult<()> {
-  if sheet.col_widths.len() >= 0 {
+  if sheet.col_widths.len() > 0 {
     writer.write_xml(&"cols", vec![], |w| {
       let mut li = sheet
         .col_widths

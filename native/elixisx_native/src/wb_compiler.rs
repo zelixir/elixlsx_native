@@ -36,17 +36,17 @@ fn make_sheet_info(sheets: &Vec<Sheet>, first_free_rid: i32) -> (Vec<SheetCompIn
 
 #[derive(Default)]
 pub struct SheetCompInfo {
-    pub rId: String,
+    pub rid: String,
     pub filename: String,
-    pub sheetId: i32,
+    pub sheet_id: i32,
 }
 
 impl SheetCompInfo {
     fn make(idx: i32, rid: i32) -> SheetCompInfo {
         SheetCompInfo {
-            rId: format!("rId{}", rid),
+            rid: format!("rId{}", rid),
             filename: format!("sheet{}.xml", idx),
-            sheetId: idx,
+            sheet_id: idx,
         }
     }
 }

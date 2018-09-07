@@ -82,7 +82,7 @@ impl<W: Write + Seek> ExcelWriter<W> {
                 .collect::<Vec<String>>(),
         ) {
             self.0
-                .start_file(format!("xl/worksheets/{}", filename), self.1);
+                .start_file(format!("xl/worksheets/{}", filename), self.1)?;
             ::xml_templates::write_sheet(&mut self.0, sheet, wci)?;
         }
 
