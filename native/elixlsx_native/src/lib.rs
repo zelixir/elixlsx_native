@@ -32,3 +32,4 @@ fn write_excel<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> {
     bin.as_mut_slice().clone_from_slice(data.as_slice());
     Ok(bin.release(env).to_term(env))
 }
+

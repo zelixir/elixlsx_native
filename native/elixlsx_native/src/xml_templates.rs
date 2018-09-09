@@ -12,8 +12,7 @@ pub fn write_content_types<T: XmlWriter>(
   writer: &mut T,
   scis: &Vec<SheetCompInfo>,
 ) -> ExcelResult<()> {
-  writer.write_string(&r###"
-        <?xml version="1.0" encoding="UTF-8"?>
+  writer.write_string(&r###"<?xml version="1.0" encoding="UTF-8"?>
     <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
     <Override PartName="/_rels/.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
     <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
@@ -38,8 +37,7 @@ pub fn write_xl_rels<T: XmlWriter>(
   scis: &Vec<SheetCompInfo>,
   next_free_xl_rid: i32,
 ) -> ExcelResult<()> {
-  writer.write_string(&r#"
-        <?xml version="1.0" encoding="UTF-8"?>
+  writer.write_string(&r#"<?xml version="1.0" encoding="UTF-8"?>
       <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
   "#)?;
@@ -57,8 +55,7 @@ pub fn write_workbook_xml<T: XmlWriter>(
   sheets: &Vec<Sheet>,
   scis: &Vec<SheetCompInfo>,
 ) -> ExcelResult<()> {
-  writer.write_string(&r#"
-      <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  writer.write_string(&r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
     <fileVersion appName="Calc"/>
     <bookViews>
@@ -88,8 +85,7 @@ pub fn write_workbook_xml<T: XmlWriter>(
 pub fn wite_string_db<T: XmlWriter>(writer: &mut T, stringdb: &DB<String>) -> ExcelResult<()> {
   let list = stringdb.sorted_list();
   let len = list.len();
-  writer.write_string(&format!(r#"
-    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  writer.write_string(&format!(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="{}" uniqueCount="{}">
   "#, len, len))?;
 
@@ -173,6 +169,7 @@ pub fn write_xl_styles<T: XmlWriter>(
       Ok(())
     },
   )?;
+  writer.write_string(&"</styleSheet>")?;
 
   Ok(())
 }
@@ -334,8 +331,7 @@ pub fn write_sheet<T: XmlWriter>(
   sheet: &Sheet,
   wci: &mut WorkbookCompInfo,
 ) -> ExcelResult<()> {
-  writer.write_string(&r#"
-      <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  writer.write_string(&r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
     <sheetPr filterMode="false">
       <pageSetUpPr fitToPage="false"/>
@@ -446,7 +442,7 @@ fn write_sheet_cols<'a, T: XmlWriter>(
     let r = to_excel_coords(row_index, i);
     match content {
       CellValue::String(string) => {
-        let id = wci.stringdb.get_id(&string);
+        let id = wci.stringdb.get_id(&string) + 1;
         writer.write_string(&format!(
           r##"<c r="{}" s="{}" t="s">
               <v>{}</v>
@@ -550,8 +546,7 @@ pub fn doc_props_app(ver: String) -> String {
 }
 
 pub fn doc_props_core(time: String, language: Option<String>, revision: Option<i32>) -> String {
-  format!( r#"
-  <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  format!( r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <dcterms:created xsi:type="dcterms:W3CDTF">{}</dcterms:created>
   <dc:language>{}</dc:language>
@@ -562,8 +557,7 @@ pub fn doc_props_core(time: String, language: Option<String>, revision: Option<i
 }
 
 pub fn rels_dotrels() -> String {
-  r#"
-  <?xml version="1.0" encoding="UTF-8"?>
+  r#"<?xml version="1.0" encoding="UTF-8"?>
   <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
   <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>

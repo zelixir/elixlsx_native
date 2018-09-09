@@ -1,10 +1,10 @@
 [package]
-name = "elixisx_native"
+name = "elixlsx_native"
 version = "0.1.0"
 authors = []
 
 [lib]
-name = "elixisx_native"
+name = "elixlsx_native"
 path = "src/lib.rs"
 crate-type = ["cdylib"]
 

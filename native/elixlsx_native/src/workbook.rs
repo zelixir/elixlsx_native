@@ -15,7 +15,7 @@ impl<'a> Decoder<'a> for Workbook<'a> {
     fn decode(term: Term<'a>) -> NifResult<Self> {
         let mut wb = Workbook {
             sheets: vec![],
-            datetime: format!("{:?}", ::chrono::Utc::now()),
+            datetime: ::chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
         };
         let map = (to_map(term))?;
         if let Some(sheets) = map.get("sheets") {
@@ -25,10 +25,10 @@ impl<'a> Decoder<'a> for Workbook<'a> {
         if let Some(datetime) = map.get("datetime") {
             match get_type(*datetime) {
                 TermType::Number => {
-                    wb.datetime = format!(
-                        "{:?}",
-                        ::chrono::NaiveDateTime::from_timestamp(datetime.decode::<i64>()?, 0),
-                    )
+                    wb.datetime =
+                        ::chrono::NaiveDateTime::from_timestamp(datetime.decode::<i64>()?, 0)
+                            .format("%Y-%m-%dT%H:%M:%SZ")
+                            .to_string()
                 }
                 TermType::Binary => wb.datetime = datetime.decode::<String>()?,
                 _ => (),
