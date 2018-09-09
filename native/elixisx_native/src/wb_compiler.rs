@@ -112,6 +112,11 @@ impl<T: Eq + Hash + Clone> DB<T> {
             }
         }
     }
+    pub fn sorted_list<'a>(&'a self) -> Vec<(&'a T, &'a i32)> {
+        let mut li: Vec<(&'a T, &'a i32)> = self.data.iter().collect();
+        li.sort_by(|a, b| a.1.cmp(b.1));
+        li
+    }
 }
 
 #[derive(Default, Eq, PartialEq, Hash, Clone)]
@@ -175,25 +180,44 @@ pub struct Font {
 }
 
 impl<'a> Font {
-    fn new(map: &HashMap<String, Term<'a>>) -> NifResult<Self> {
-        Ok(Font {
+    fn new(map: &HashMap<String, Term<'a>>) -> NifResult<Option<Self>> {
+        let re = Font {
             bold: get_bool(map, "bold"),
             italic: get_bool(map, "italic"),
             underline: get_bool(map, "underline"),
             strike: get_bool(map, "strike"),
-            size: map.get("size").map_or(Err(Error::BadArg), |x| x.decode())?,
+            size: map.get("size").map_or(Ok(0), |x| x.decode())?,
             color: get_keyword_value(map, "color", Default::default())?,
             wrap_text: get_bool(map, "wrap_text"),
             align_horizontal: get_keyword_value(map, "align_horizontal", Default::default())?,
             align_vertical: get_keyword_value(map, "align_vertical", Default::default())?,
             font: get_keyword_value(map, "font", Default::default())?,
-        })
+        };
+        if re == Default::default() {
+            Ok(None)
+        } else {
+            Ok(Some(re))
+        }
+    }
+
+    pub fn get_alignment_attributes(&'a self) -> Vec<(&'a ToString, &'a ToString)> {
+        let mut re: Vec<(&'a ToString, &'a ToString)> = vec![];
+        if self.wrap_text {
+            re.push((&"wrapText", &"1"));
+        }
+        if self.align_horizontal != "" {
+            re.push((&"horizontal", &self.align_horizontal));
+        }
+        if self.align_vertical != "" {
+            re.push((&"vertical", &self.align_vertical));
+        }
+        re
     }
 }
 
 #[derive(Default, Eq, PartialEq, Hash, Clone)]
 pub struct CellStyle {
-    pub font: Font,
+    pub font: Option<Font>,
     pub fill: String,
     pub numfmt: String,
     pub border: BorderStyle,

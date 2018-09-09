@@ -133,9 +133,13 @@ impl<'a> CellValue {
         Ok(match (get_type(term), is_date) {
             (TermType::Tuple, true) => {
                 let ((y, m, d), (h, mm, s)) = term.decode::<((i32, u32, u32), (u32, u32, u32))>()?;
-                let v = (::chrono::NaiveDate::from_ymd(y, m, d)
+                let mut v = (::chrono::NaiveDate::from_ymd(y, m, d)
                     .and_hms(h, mm, s)
                     .timestamp() - *EXCEL_EPOCH) as f64 / 86400.0;
+                // Apply the "Lotus 123" bug - 1900 is considered a leap year.
+                if v > 59.0 {
+                    v = v + 1.0;
+                }
                 CellValue::Number(v.to_string())
             }
             (TermType::Tuple, false) => {

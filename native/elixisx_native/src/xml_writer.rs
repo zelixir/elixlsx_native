@@ -16,13 +16,7 @@ pub trait XmlWriter {
     {
         self.write_string(&"<")?;
         self.write_string(tag)?;
-        for (name, value) in attrs {
-            self.write_string(&" ")?;
-            self.write_string(name)?;
-            self.write_string(&"=\"")?;
-            self.write_string(value)?;
-            self.write_string(&"\"")?;
-        }
+        self.write_attrs(attrs)?;
         self.write_string(&">")?;
 
         inner(self)?;
@@ -31,6 +25,28 @@ pub trait XmlWriter {
         self.write_string(tag)?;
         self.write_string(&">")?;
 
+        Ok(())
+    }
+    fn write_xml_empty_tag(
+        &mut self,
+        tag: &ToString,
+        attrs: Vec<(&ToString, &ToString)>,
+    ) -> ExcelResult<()> {
+        self.write_string(&"<")?;
+        self.write_string(tag)?;
+        self.write_attrs(attrs)?;
+        self.write_string(&"/>")?;
+        Ok(())
+    }
+
+    fn write_attrs(&mut self, attrs: Vec<(&ToString, &ToString)>) -> ExcelResult<()> {
+        for (name, value) in attrs {
+            self.write_string(&" ")?;
+            self.write_string(name)?;
+            self.write_string(&"=\"")?;
+            self.write_string(value)?;
+            self.write_string(&"\"")?;
+        }
         Ok(())
     }
 }

@@ -53,7 +53,6 @@ impl<W: Write + Seek> ExcelWriter<W> {
         self.0.write(
             ::xml_templates::doc_props_core(workbook.datetime.clone(), None, None).as_bytes(),
         )?;
-        // self.write_xml()
         Ok(())
     }
 
@@ -66,7 +65,9 @@ impl<W: Write + Seek> ExcelWriter<W> {
 
     fn write_xl_dir(&mut self, workbook: &Workbook, wci: &mut WorkbookCompInfo) -> ExcelResult<()> {
         self.write_xl_worksheets_dir(workbook, wci)?;
+        self.0.start_file("xl/styles.xml", self.1)?;
         ::xml_templates::write_xl_styles(&mut self.0, wci)?;
+
         Ok(())
     }
 
