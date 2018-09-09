@@ -57,7 +57,7 @@ impl<T: Write> XmlWriter for T {
     }
 }
 
-pub struct Escaped<'a>(&'a ToString);
+pub struct Escaped<'a>(pub &'a ToString);
 
 impl<'a> ToString for Escaped<'a> {
     fn to_string(&self) -> String {

@@ -1,13 +1,80 @@
 use error::ExcelResult;
 use rustler::dynamic::get_type;
-use rustler::types::{Binary, ListIterator, MapIterator, OwnedBinary};
-use rustler::{Decoder, Encoder, Env, Term, TermType};
+use rustler::types::ListIterator;
+use rustler::{Term, TermType};
 use std::collections::HashMap;
 use util::to_excel_coords;
 use wb_compiler::{Border, BorderStyle, CellStyle, Font, SheetCompInfo, WorkbookCompInfo, DB};
 use workbook::{CellValue, Sheet};
-use xml_writer::XmlWriter;
+use xml_writer::{Escaped, XmlWriter};
+pub fn write_xl_rels<T: XmlWriter>(
+  writer: &mut T,
+  scis: &Vec<SheetCompInfo>,
+  next_free_xl_rid: i32,
+) -> ExcelResult<()> {
+  writer.write_string(&r#"
+        <?xml version="1.0" encoding="UTF-8"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  "#)?;
+  for sci in scis {
+    writer.write_string(&format!("<Relationship Id=\"{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/{}\"/>", sci.rid, sci.filename))?;
+  }
+  writer.write_string(&format!(r#"
+        <Relationship Id="rId{}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
+      </Relationships>
+  "#, next_free_xl_rid))?;
+  Ok(())
+}
+pub fn write_workbook_xml<T: XmlWriter>(
+  writer: &mut T,
+  sheets: &Vec<Sheet>,
+  scis: &Vec<SheetCompInfo>,
+) -> ExcelResult<()> {
+  writer.write_string(&r#"
+      <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <fileVersion appName="Calc"/>
+    <bookViews>
+      <workbookView activeTab="0"/>
+    </bookViews>
+    <sheets>
+      "#)?;
+  for (sheet, sci) in sheets.iter().zip(scis) {
+    writer.write_xml_empty_tag(
+      &"sheet",
+      vec![
+        (&"name", &Escaped(&sheet.name)),
+        (&"sheetId", &sci.sheet_id),
+        (&"state", &"visible"),
+        (&"r:id", &sci.rid),
+      ],
+    )?;
+  }
+  writer.write_string(&r#"
+    </sheets>
+    <calcPr fullCalcOnLoad="1" iterateCount="100" refMode="A1" iterate="false" iterateDelta="0.001"/>
+    </workbook>
+      "#)?;
 
+  Ok(())
+}
+pub fn wite_string_db<T: XmlWriter>(writer: &mut T, stringdb: &DB<String>) -> ExcelResult<()> {
+  let list = stringdb.sorted_list();
+  let len = list.len();
+  writer.write_string(&format!(r#"
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="{}" uniqueCount="{}">
+  "#, len, len))?;
+
+  for (string, _) in list {
+    writer.write_string(&"<si><t>")?;
+    writer.write_string(&Escaped(string))?;
+    writer.write_string(&"</t></si>")?;
+  }
+  writer.write_string(&"</sst>")?;
+  Ok(())
+}
 pub fn write_xl_styles<T: XmlWriter>(
   writer: &mut T,
   wci: &mut WorkbookCompInfo,

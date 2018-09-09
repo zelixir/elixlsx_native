@@ -43,13 +43,16 @@ pub fn create_excel_data<'a>(
 struct ExcelWriter<W: Write + Seek>(ZipWriter<W>, FileOptions);
 
 impl<W: Write + Seek> ExcelWriter<W> {
+    fn start_file(&mut self, filename: &str) -> ZipResult<()> {
+        self.0.start_file(filename, self.1)
+    }
     fn write_doc_props_dir(&mut self, workbook: &Workbook) -> ZipResult<()> {
         // app.xml
-        self.0.start_file("docProps/app.xml", self.1)?;
+        self.start_file(&"docProps/app.xml")?;
         self.0
             .write(::xml_templates::doc_props_app("1.00".to_string()).as_bytes())?;
         // core.xml
-        self.0.start_file("docProps/core.xml", self.1)?;
+        self.start_file(&"docProps/core.xml")?;
         self.0.write(
             ::xml_templates::doc_props_core(workbook.datetime.clone(), None, None).as_bytes(),
         )?;
@@ -57,7 +60,7 @@ impl<W: Write + Seek> ExcelWriter<W> {
     }
 
     fn write_rels_dir(&mut self) -> ZipResult<()> {
-        self.0.start_file("_rels/.rels", self.1)?;
+        self.start_file(&"_rels/.rels")?;
         self.0.write(::xml_templates::rels_dotrels().as_bytes())?;
 
         Ok(())
@@ -65,9 +68,14 @@ impl<W: Write + Seek> ExcelWriter<W> {
 
     fn write_xl_dir(&mut self, workbook: &Workbook, wci: &mut WorkbookCompInfo) -> ExcelResult<()> {
         self.write_xl_worksheets_dir(workbook, wci)?;
-        self.0.start_file("xl/styles.xml", self.1)?;
+        self.start_file(&"xl/styles.xml")?;
         ::xml_templates::write_xl_styles(&mut self.0, wci)?;
-
+        self.start_file(&"xl/sharedStrings.xml")?;
+        ::xml_templates::wite_string_db(&mut self.0, &wci.stringdb)?;
+        self.start_file(&"xl/workbook.xml")?;
+        ::xml_templates::write_workbook_xml(&mut self.0, &workbook.sheets, &wci.sheet_info)?;
+        self.start_file(&"xl/_rels/workbook.xml.rels")?;
+        ::xml_templates::write_xl_rels(&mut self.0, &wci.sheet_info, wci.next_free_xl_rid)?;
         Ok(())
     }
 
