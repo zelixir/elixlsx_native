@@ -1,14 +1,12 @@
 use error::ExcelResult;
-use rustler::dynamic::get_type;
-use rustler::types::{Binary, ListIterator, MapIterator, OwnedBinary};
-use rustler::{Decoder, Env, Error, NifResult, Term, TermType};
+use rustler::types::ListIterator;
+use rustler::{Decoder, Error, NifResult, Term};
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
 use workbook::{Sheet, Workbook};
 
 pub fn make_workbook_comp_info<'a>(
-    env: Env<'a>,
     args: &[Term<'a>],
 ) -> ExcelResult<(Workbook<'a>, WorkbookCompInfo)> {
     let workbook: Workbook = args[0].decode()?;
@@ -20,9 +18,6 @@ pub fn make_workbook_comp_info<'a>(
         next_free_xl_rid: next_rid,
         ..Default::default()
     };
-    // try!(wci.compinfo_from_sheets(&workbook.sheets));
-    // try!(wci.regist_all_cell_style());
-
     Ok((workbook, wci))
 }
 
@@ -61,39 +56,6 @@ pub struct WorkbookCompInfo {
     pub numfmtdb: DB<String>,
     pub borderstyledb: DB<BorderStyle>,
     pub next_free_xl_rid: i32,
-}
-
-impl WorkbookCompInfo {
-    // fn compinfo_from_sheets(&mut self, sheets: &Vec<Sheet>) -> NifResult<()> {
-    //     for sheet in sheets {
-    //         try!(self.compinfo_from_rows(&sheet.rows));
-    //     }
-    //     Ok(())
-    // }
-    // fn compinfo_from_rows<'a>(&mut self, rows: &Term<'a>) -> NifResult<()> {
-    //     let list: ListIterator = try!(rows.decode());
-    //     for row in list {
-    //         for cell in try!(row.decode::<ListIterator>()) {
-    //             self.compinfo_cell_pass(cell);
-    //         }
-    //     }
-    //     Ok(())
-    // }
-    // fn compinfo_cell_pass<'a>(&mut self, cell: Term<'a>) {
-    //     match get_type(cell) {
-    //         TermType::List => {
-    //             let list: ListIterator = try!(cell.decode());
-    //             list.next().map(|x| self.compinfo_cell_pass(x));
-    //             self.compinfo_cell_pass_style(list.collect());
-    //         }
-    //         TermType::Binary => cell
-    //         _ => (),
-    //     };
-    // }
-    // fn compinfo_cell_pass_style<'a>(&mut self, props: Vec<Term<'a>>) {}
-    // fn regist_all_cell_style(&mut self) -> NifResult<()> {
-    //     Ok(())
-    // }
 }
 
 #[derive(Default)]

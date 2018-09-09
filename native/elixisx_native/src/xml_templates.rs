@@ -7,6 +7,32 @@ use util::to_excel_coords;
 use wb_compiler::{Border, BorderStyle, CellStyle, Font, SheetCompInfo, WorkbookCompInfo, DB};
 use workbook::{CellValue, Sheet};
 use xml_writer::{Escaped, XmlWriter};
+
+pub fn write_content_types<T: XmlWriter>(
+  writer: &mut T,
+  scis: &Vec<SheetCompInfo>,
+) -> ExcelResult<()> {
+  writer.write_string(&r###"
+        <?xml version="1.0" encoding="UTF-8"?>
+    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Override PartName="/_rels/.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+    <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+    <Override PartName="/xl/_rels/workbook.xml.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+    <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+    "###)?;
+  for sci in scis {
+    writer.write_string(&format!(r###"
+        <Override PartName="/xl/worksheets/{}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+    "###, sci.filename))?;
+  }
+  writer.write_string(&r###"
+    <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
+    </Types>
+    "###)?;
+  Ok(())
+}
 pub fn write_xl_rels<T: XmlWriter>(
   writer: &mut T,
   scis: &Vec<SheetCompInfo>,

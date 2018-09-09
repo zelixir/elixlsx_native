@@ -1,13 +1,8 @@
-use error::{ExcelError, ExcelResult};
-use rustler::dynamic::get_type;
-use rustler::types::{Binary, ListIterator, MapIterator, OwnedBinary};
-use rustler::{Decoder, Encoder, Env, Term, TermType};
-use std::cmp::Eq;
-use std::io::{BufWriter, Cursor, Seek, SeekFrom, Write};
-use wb_compiler::{SheetCompInfo, WorkbookCompInfo};
-use workbook::{Sheet, Workbook};
-use xml_writer::XmlWriter;
-use zip::result::{ZipError, ZipResult};
+use error::ExcelResult;
+use std::io::{Cursor, Seek, SeekFrom, Write};
+use wb_compiler::WorkbookCompInfo;
+use workbook::Workbook;
+use zip::result::ZipResult;
 use zip::write::FileOptions;
 use zip::ZipWriter;
 
@@ -24,7 +19,8 @@ pub fn create_excel<'a, W: Write + Seek>(
     writer.write_doc_props_dir(&workbook)?;
     writer.write_rels_dir()?;
     writer.write_xl_dir(&workbook, &mut wci)?;
-
+    writer.start_file(&"[Content_Types].xml")?;
+    ::xml_templates::write_content_types(&mut writer.0, &wci.sheet_info)?;
     Ok(())
 }
 pub fn create_excel_data<'a>(
