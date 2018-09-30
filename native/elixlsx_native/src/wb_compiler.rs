@@ -68,7 +68,7 @@ impl<T: Eq + Hash + Clone> DB<T> {
         match self.data.get(key) {
             Some(&id) => id,
             _ => {
-                let id = self.data.len() as i32 + 1;
+                let id = self.data.len() as i32;
                 self.data.insert(key.clone(), id);
                 id
             }

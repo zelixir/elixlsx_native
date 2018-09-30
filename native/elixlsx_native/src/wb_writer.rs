@@ -12,7 +12,7 @@ pub fn create_excel<'a, W: Write + Seek>(
     writer: W,
 ) -> ExcelResult<()> {
     let options = FileOptions::default()
-        .compression_method(::zip::CompressionMethod::Deflated)
+        .compression_method(::zip::CompressionMethod::Stored)
         .unix_permissions(0o755);
 
     let mut writer = ExcelWriter(ZipWriter::new(writer), options);

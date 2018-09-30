@@ -86,8 +86,8 @@ pub fn wite_string_db<T: XmlWriter>(writer: &mut T, stringdb: &DB<String>) -> Ex
   let list = stringdb.sorted_list();
   let len = list.len();
   writer.write_string(&format!(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-  <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="{}" uniqueCount="{}">
-  "#, len, len))?;
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="{}" uniqueCount="{}">
+"#, len, len))?;
 
   for (string, _) in list {
     writer.write_string(&"<si><t>")?;
@@ -355,7 +355,7 @@ pub fn write_sheet<T: XmlWriter>(
   wrtie_col_widths(writer, sheet)?;
   writer.write_string(&r#"<sheetData>"#)?;
   write_sheet_rows(writer, sheet, wci)?;
-  writer.write_string(&r#"<sheetData>"#)?;
+  writer.write_string(&r#"</sheetData>"#)?;
   write_merge_cells(writer, &sheet.merge_cells)?;
   writer.write_string(
     &r##"
@@ -442,7 +442,7 @@ fn write_sheet_cols<'a, T: XmlWriter>(
     let r = to_excel_coords(row_index, i);
     match content {
       CellValue::String(string) => {
-        let id = wci.stringdb.get_id(&string) + 1;
+        let id = wci.stringdb.get_id(&string);
         writer.write_string(&format!(
           r##"<c r="{}" s="{}" t="s">
               <v>{}</v>
