@@ -1,77 +1,74 @@
 use error::ExcelResult;
-use std::io::{Cursor, Seek, SeekFrom, Write};
+use std::collections::HashMap;
+use std::io::Write;
 use wb_compiler::WorkbookCompInfo;
 use workbook::Workbook;
-use zip::result::ZipResult;
-use zip::write::FileOptions;
-use zip::ZipWriter;
 
-pub fn create_excel<'a, W: Write + Seek>(
+pub fn create_excel<'a>(
     workbook: Workbook<'a>,
     mut wci: WorkbookCompInfo,
-    writer: W,
-) -> ExcelResult<()> {
-    let options = FileOptions::default()
-        .compression_method(::zip::CompressionMethod::Stored)
-        .unix_permissions(0o755);
-
-    let mut writer = ExcelWriter(ZipWriter::new(writer), options);
+) -> ExcelResult<HashMap<String, Vec<u8>>> {
+    let mut writer = ExcelWriter::new();
     writer.write_doc_props_dir(&workbook)?;
     writer.write_rels_dir()?;
     writer.write_xl_dir(&workbook, &mut wci)?;
-    writer.start_file(&"[Content_Types].xml")?;
-    ::xml_templates::write_content_types(&mut writer.0, &wci.sheet_info)?;
-    Ok(())
-}
-pub fn create_excel_data<'a>(
-    workbook: Workbook<'a>,
-    wci: WorkbookCompInfo,
-) -> ExcelResult<Vec<u8>> {
-    let mut cursor = Cursor::new(vec![]);
-    create_excel(
-        workbook,
-        wci,
-        ::std::io::BufWriter::new(SeekableVec(&mut cursor)),
+
+    ::xml_templates::write_content_types(
+        &mut writer.start_file(&"[Content_Types].xml"),
+        &wci.sheet_info,
     )?;
-    Ok(cursor.get_ref().to_vec())
+    Ok(writer.data)
 }
 
-struct ExcelWriter<W: Write + Seek>(ZipWriter<W>, FileOptions);
+#[derive(Default)]
+struct ExcelWriter {
+    data: HashMap<String, Vec<u8>>,
+}
 
-impl<W: Write + Seek> ExcelWriter<W> {
-    fn start_file(&mut self, filename: &str) -> ZipResult<()> {
-        self.0.start_file(filename, self.1)
+impl ExcelWriter {
+    fn new() -> Self {
+        Default::default()
     }
-    fn write_doc_props_dir(&mut self, workbook: &Workbook) -> ZipResult<()> {
+    fn start_file(&mut self, filename: &ToString) -> &mut Write {
+        let buf: Vec<u8> = Vec::with_capacity(4096);
+        self.data.insert(filename.to_string(), buf);
+        self.data.get_mut(&filename.to_string()).unwrap()
+    }
+
+    fn write_doc_props_dir(&mut self, workbook: &Workbook) -> ::std::io::Result<&mut Self> {
         // app.xml
-        self.start_file(&"docProps/app.xml")?;
-        self.0
+        self.start_file(&"docProps/app.xml")
             .write(::xml_templates::doc_props_app("1.00".to_string()).as_bytes())?;
         // core.xml
-        self.start_file(&"docProps/core.xml")?;
-        self.0.write(
+        self.start_file(&"docProps/core.xml").write(
             ::xml_templates::doc_props_core(workbook.datetime.clone(), None, None).as_bytes(),
         )?;
-        Ok(())
+        Ok(self)
     }
 
-    fn write_rels_dir(&mut self) -> ZipResult<()> {
-        self.start_file(&"_rels/.rels")?;
-        self.0.write(::xml_templates::rels_dotrels().as_bytes())?;
-
+    fn write_rels_dir(&mut self) -> ::std::io::Result<()> {
+        self.start_file(&"_rels/.rels")
+            .write(::xml_templates::rels_dotrels().as_bytes())?;
         Ok(())
     }
 
     fn write_xl_dir(&mut self, workbook: &Workbook, wci: &mut WorkbookCompInfo) -> ExcelResult<()> {
         self.write_xl_worksheets_dir(workbook, wci)?;
-        self.start_file(&"xl/styles.xml")?;
-        ::xml_templates::write_xl_styles(&mut self.0, wci)?;
-        self.start_file(&"xl/sharedStrings.xml")?;
-        ::xml_templates::wite_string_db(&mut self.0, &wci.stringdb)?;
-        self.start_file(&"xl/workbook.xml")?;
-        ::xml_templates::write_workbook_xml(&mut self.0, &workbook.sheets, &wci.sheet_info)?;
-        self.start_file(&"xl/_rels/workbook.xml.rels")?;
-        ::xml_templates::write_xl_rels(&mut self.0, &wci.sheet_info, wci.next_free_xl_rid)?;
+        ::xml_templates::write_xl_styles(&mut self.start_file(&"xl/styles.xml"), wci)?;
+        ::xml_templates::wite_string_db(
+            &mut self.start_file(&"xl/sharedStrings.xml"),
+            &wci.stringdb,
+        )?;
+        ::xml_templates::write_workbook_xml(
+            &mut self.start_file(&"xl/workbook.xml"),
+            &workbook.sheets,
+            &wci.sheet_info,
+        )?;
+        ::xml_templates::write_xl_rels(
+            &mut self.start_file(&"xl/_rels/workbook.xml.rels"),
+            &wci.sheet_info,
+            wci.next_free_xl_rid,
+        )?;
         Ok(())
     }
 
@@ -80,40 +77,16 @@ impl<W: Write + Seek> ExcelWriter<W> {
         workbook: &Workbook,
         wci: &mut WorkbookCompInfo,
     ) -> ExcelResult<()> {
-        for (sheet, filename) in workbook.sheets.iter().zip(
-            wci.sheet_info
-                .iter()
-                .map(|x| x.filename.clone())
-                .collect::<Vec<String>>(),
-        ) {
-            self.0
-                .start_file(format!("xl/worksheets/{}", filename), self.1)?;
-            ::xml_templates::write_sheet(&mut self.0, sheet, wci)?;
+        for (filename, sheet) in wci.sheet_info
+            .iter()
+            .map(|x| x.filename.clone())
+            .collect::<Vec<String>>()
+            .iter()
+            .zip(workbook.sheets.iter())
+        {
+            let mut writer = self.start_file(&format!("xl/worksheets/{}", filename));
+            ::xml_templates::write_sheet(&mut writer, sheet, wci)?;
         }
-
-        Ok(())
-    }
-}
-
-struct SeekableVec<'a>(&'a mut Cursor<Vec<u8>>);
-
-impl<'a> Seek for SeekableVec<'a> {
-    fn seek(&mut self, pos: SeekFrom) -> ::std::io::Result<u64> {
-        let pos = match pos {
-            SeekFrom::Current(0) => self.0.position(),
-            SeekFrom::Start(pos) => pos,
-            _ => Err(::std::io::Error::from(::std::io::ErrorKind::Other))?,
-        };
-        self.0.set_position(pos);
-        Ok(pos)
-    }
-}
-
-impl<'a> Write for SeekableVec<'a> {
-    fn write(&mut self, buf: &[u8]) -> ::std::io::Result<usize> {
-        self.0.write(buf)
-    }
-    fn flush(&mut self) -> ::std::io::Result<()> {
         Ok(())
     }
 }

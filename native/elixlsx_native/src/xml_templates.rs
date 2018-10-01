@@ -103,7 +103,8 @@ pub fn write_xl_styles<T: XmlWriter>(
 ) -> ExcelResult<()> {
   writer.write_string(&r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">"#)?;
-  writer.write_string(
+  let mut buf: Vec<u8> = Vec::with_capacity(2048);
+  buf.write_string(
     &r#"      <cellStyleXfs count="1">
         <xf borderId="0" numFmtId="0" fillId="0" fontId="0" applyAlignment="1">
           <alignment wrapText="1"/>
@@ -112,23 +113,23 @@ pub fn write_xl_styles<T: XmlWriter>(
   "#,
   )?;
   let cell_styles: Vec<(&CellStyle, &i32)> = wci.cellstyledb.sorted_list();
-  writer.write_string(&format!(
+  buf.write_string(&format!(
     r#"      <cellXfs count="{}">
         <xf borderId="0" numFmtId="0" fillId="0" fontId="0" xfId="0"/>"#,
     &(1 + cell_styles.len())
   ))?;
   for (style, _) in cell_styles {
     write_cell_style(
-      writer,
+      &mut buf,
       style,
       &mut wci.fontdb,
       &mut wci.filldb,
       &mut wci.numfmtdb,
       &mut wci.borderstyledb,
     )?;
-    writer.write_string(&"\n")?;
+    buf.write_string(&"\n")?;
   }
-  writer.write_string(&"</cellXfs>")?;
+  buf.write_string(&"</cellXfs>")?;
   write_numfmts(writer, wci.numfmtdb.sorted_list())?;
 
   let font_list = wci.fontdb.sorted_list();
@@ -169,6 +170,7 @@ pub fn write_xl_styles<T: XmlWriter>(
       Ok(())
     },
   )?;
+  writer.write_string(&unsafe{String::from_utf8_unchecked(buf)})?;
   writer.write_string(&"</styleSheet>")?;
 
   Ok(())

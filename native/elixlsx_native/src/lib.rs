@@ -2,11 +2,9 @@
 extern crate rustler;
 #[macro_use]
 extern crate lazy_static;
-extern crate regex;
 extern crate chrono;
-extern crate zip;
-use rustler::types::OwnedBinary;
-use rustler::{Env, Error, NifResult, Term};
+extern crate regex;
+use rustler::{Encoder, Env, NifResult, Term};
 
 mod error;
 mod util;
@@ -19,16 +17,16 @@ mod xml_writer;
 rustler_export_nifs! {
     "Elixir.Elixlsx.Native",
     [
-     ("write_excel", 1, write_excel)
+     ("write_excel_nif", 1, write_excel)
     ],
     None
 }
 
 fn write_excel<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> {
     let (workbook, wci) = wb_compiler::make_workbook_comp_info(args)?;
-    let data = wb_writer::create_excel_data(workbook, wci)?;
-    let mut bin = OwnedBinary::new(data.len()).ok_or(Error::Atom("write_bin_error"))?;
-    bin.as_mut_slice().clone_from_slice(data.as_slice());
-    Ok(bin.release(env).to_term(env))
+    Ok(wb_writer::create_excel(workbook, wci)?
+        .into_iter()
+        .map(|(k, v)| (k.into_bytes(), unsafe { String::from_utf8_unchecked(v) }))
+        .collect::<Vec<(Vec<u8>, String)>>()
+        .encode(env))
 }
-

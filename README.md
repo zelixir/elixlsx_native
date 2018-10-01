@@ -2,7 +2,6 @@
 
 rust impl for elixlsx writer
 
-
 ## Usage
 
 First adding `elixlsx_native` to your list of dependencies in `mix.exs`:
@@ -42,16 +41,18 @@ iex(3)>   workbook = %Workbook{sheets: [%Sheet{name: "sheet-1", rows: rows}]}
   ]
 }
 iex(4)>   :timer.tc(fn -> Elixlsx.Native.write_excel(workbook) end)
-{440834,
- <<80, 75, 3, 4, 20, 0, 0, 0, 8, 0, 88, 3, 42, 77, 187, 224, 213, 73, 201, 0, 0,
-   0, 85, 1, 0, 0, 16, 0, 0, 0, 100, 111, 99, 80, 114, 111, 112, 115, 47, 97,
-   112, 112, 46, 120, 109, 108, 157, 144, ...>>}
-iex(5)>   :timer.tc(fn -> Elixlsx.write_to_memory(workbook, "filename.xlsx") end)
-{3581242,
+{349123,
  {:ok,
-  {'filename.xlsx',
-   <<80, 75, 3, 4, 20, 0, 0, 0, 8, 0, 85, 3, 42, 77, 49, 105, 140, 73, 201, 0,
+  {'workbook.xlsx',
+   <<80, 75, 3, 4, 20, 0, 0, 0, 8, 0, 204, 88, 65, 77, 187, 224, 213, 73, 201,
+     0, 0, 0, 85, 1, 0, 0, 16, 0, 0, 0, 100, 111, 99, 80, 114, 111, 112, 115,
+     47, 97, 112, 112, 46, 120, ...>>}}}
+iex(5)>   :timer.tc(fn -> Elixlsx.write_to_memory(workbook, "workbook.xlsx") end)
+{2351459,
+ {:ok,
+  {'workbook.xlsx',
+   <<80, 75, 3, 4, 20, 0, 0, 0, 8, 0, 206, 88, 65, 77, 49, 105, 140, 73, 201, 0,
      0, 0, 85, 1, 0, 0, 16, 0, 0, 0, 100, 111, 99, 80, 114, 111, 112, 115, 47,
      97, 112, 112, 46, 120, ...>>}}}
-
+     
 ```
