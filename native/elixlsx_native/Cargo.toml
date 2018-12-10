@@ -2,6 +2,7 @@
 name = "elixlsx_native"
 version = "0.1.0"
 authors = []
+edition = "2018"
 
 [lib]
 name = "elixlsx_native"

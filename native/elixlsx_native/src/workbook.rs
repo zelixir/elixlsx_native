@@ -20,7 +20,7 @@ impl<'a> Decoder<'a> for Workbook<'a> {
         let map = (to_map(term))?;
         if let Some(sheets) = map.get("sheets") {
             let sheets: ListIterator = (sheets.decode())?;
-            wb.sheets = try!(sheets.map(|x| x.decode::<Sheet>()).collect());
+            wb.sheets = r#try!(sheets.map(|x| x.decode::<Sheet>()).collect());
         }
         if let Some(datetime) = map.get("datetime") {
             match get_type(*datetime) {

@@ -1,4 +1,4 @@
-use error::ExcelResult;
+use crate::error::ExcelResult;
 use regex::Regex;
 use std::io::{Result, Write};
 
@@ -69,26 +69,24 @@ pub fn xml_escape(input: String) -> String {
     lazy_static! {
         static ref REGEX: Regex = Regex::new("[<>&\"']").unwrap();
     }
-    {
-        if let Some(first) = REGEX.find(&input) {
-            let first = first.start();
-            let len = input.len();
-            let mut output: Vec<u8> = Vec::with_capacity(len + len / 2);
-            output.extend_from_slice(input[0..first].as_bytes());
-            let rest = input[first..].bytes();
-            for c in rest {
-                match c {
-                    b'<' => output.extend_from_slice(b"&lt;"),
-                    b'>' => output.extend_from_slice(b"&gt;"),
-                    b'&' => output.extend_from_slice(b"&amp;"),
-                    b'\'' => output.extend_from_slice(b"&apos;"),
-                    b'"' => output.extend_from_slice(b"&quot;"),
-                    _ => output.push(c),
-                }
+    if let Some(first) = REGEX.find(&input) {
+        let first = first.start();
+        let len = input.len();
+        let mut output: Vec<u8> = Vec::with_capacity(len + len / 2);
+        output.extend_from_slice(input[0..first].as_bytes());
+        let rest = input[first..].bytes();
+        for c in rest {
+            match c {
+                b'<' => output.extend_from_slice(b"&lt;"),
+                b'>' => output.extend_from_slice(b"&gt;"),
+                b'&' => output.extend_from_slice(b"&amp;"),
+                b'\'' => output.extend_from_slice(b"&apos;"),
+                b'"' => output.extend_from_slice(b"&quot;"),
+                _ => output.push(c),
             }
-            Some(unsafe { String::from_utf8_unchecked(output) })
-        } else {
-            None
         }
-    }.unwrap_or(input)
+        unsafe { String::from_utf8_unchecked(output) }
+    } else {
+        input
+    }
 }

@@ -1,10 +1,10 @@
-use error::ExcelResult;
+use crate::error::ExcelResult;
 use rustler::types::ListIterator;
 use rustler::{Decoder, Error, NifResult, Term};
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::hash::Hash;
-use workbook::{Sheet, Workbook};
+use crate::workbook::{Sheet, Workbook};
 
 pub fn make_workbook_comp_info<'a>(
     args: &[Term<'a>],
@@ -111,7 +111,7 @@ impl<'a> BorderStyle {
     fn new(map: &HashMap<String, Term<'a>>) -> NifResult<Self> {
         fn get_border<'a>(map: &HashMap<String, Term<'a>>, name: &str) -> NifResult<Border> {
             let li: ListIterator = map.get(name).ok_or_else(|| Error::BadArg)?.decode()?;
-            let map = ::workbook::decode_keyword_list(li)?;
+            let map = crate::workbook::decode_keyword_list(li)?;
             Border::new(&map, name.to_string())
         }
 
@@ -187,7 +187,7 @@ pub struct CellStyle {
 
 impl<'a> CellStyle {
     pub fn new(list: ListIterator<'a>) -> NifResult<Self> {
-        let map = ::workbook::decode_keyword_list(list)?;
+        let map = crate::workbook::decode_keyword_list(list)?;
         Ok(CellStyle {
             font: Font::new(&map)?,
             fill: get_keyword_value(&map, "bg_color", Default::default())?,

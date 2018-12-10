@@ -1,12 +1,12 @@
-use error::ExcelResult;
+use crate::error::ExcelResult;
 use rustler::dynamic::get_type;
 use rustler::types::ListIterator;
 use rustler::{Term, TermType};
 use std::collections::HashMap;
-use util::to_excel_coords;
-use wb_compiler::{Border, BorderStyle, CellStyle, Font, SheetCompInfo, WorkbookCompInfo, DB};
-use workbook::{CellValue, Sheet};
-use xml_writer::{Escaped, XmlWriter};
+use crate::util::to_excel_coords;
+use crate::wb_compiler::{Border, BorderStyle, CellStyle, Font, SheetCompInfo, WorkbookCompInfo, DB};
+use crate::workbook::{CellValue, Sheet};
+use crate::xml_writer::{Escaped, XmlWriter};
 
 pub fn write_content_types<T: XmlWriter>(
   writer: &mut T,
@@ -378,7 +378,7 @@ fn make_sheet_view(sheet: &Sheet) -> String {
 
   let (selection_pane_attr, panel_xml) = match sheet.pane_freeze {
     Some((x, y)) if x > 0 || y > 0 => {
-      let top_left_cell = ::util::to_excel_coords(x + 1, y + 1);
+      let top_left_cell = crate::util::to_excel_coords(x + 1, y + 1);
       let s = format!("pane=\"{}\"", pane);
       let p = format!("<pane xSplit=\"{}\" ySplit=\"{}\" topLeftCell=\"{}\" activePane=\"{}\" state=\"frozen\" />", 
         x, y, top_left_cell, pane);
